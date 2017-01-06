@@ -14,12 +14,13 @@ public class Main {
 
     static Connection conn;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
         Scanner sc = new Scanner(System.in);
 
         try {
             try {
                 conn = DriverManager.getConnection(DB_CONNECTION, DB_USER, DB_PASSWORD);
+                initDB();
 
                 while (true) {
                     System.out.println("1. Add apartment");
@@ -92,7 +93,7 @@ public class Main {
         String squareRangeS = "";
         if (!"".equals(sq1) && !"".equals(sq2)) {
             Range sr = new Range(Integer.parseInt(sq1), Integer.parseInt(sq2));
-            squareRangeS = "(price > " + sr.getMin() + " AND price < " + sr.getMax() + ")";
+            squareRangeS = "(square > " + sr.getMin() + " AND square < " + sr.getMax() + ")";
         }
         System.out.println(squareRangeS);
 
@@ -109,12 +110,22 @@ public class Main {
         }
         System.out.println(priceRangeS);
 
-        String request = "";
-        if (!"".equals(areasS)) request += "WHERE " + areasS;
-        if (!"".equals(addressS)) request += " AND " + addressS;
-        if (!"".equals(squareRangeS)) request += " AND " + squareRangeS;
-        if (!"".equals(room_numS)) request += " AND " + room_numS;
-        if (!"".equals(priceRangeS)) request += " AND " + priceRangeS;
+        StringBuffer request = new StringBuffer();
+        String[] requestAr = new String[]{areasS, addressS, squareRangeS, room_numS, priceRangeS};
+
+        boolean foundStart = false;
+        for (int i = 0; i < requestAr.length; i++) {
+            if (!"".equals(requestAr[i]) && !foundStart) {
+                request.append("WHERE " + requestAr[i]);
+                foundStart = true;
+                i++;
+            }
+            if (!"".equals(requestAr[i])) {
+                request.append(" AND " + requestAr[i]);
+            }
+        }
+        System.out.println(request);
+
 
         PreparedStatement ps = conn.prepareStatement("SELECT * FROM apartments " + request);
         try {
@@ -184,11 +195,28 @@ public class Main {
     }
 
     private static void initDB() throws SQLException {
+        PreparedStatement ps = conn.prepareStatement("SHOW TABLES LIKE \"apartments\"");
         Statement st = conn.createStatement();
         try {
-            st.execute("DROP TABLE IF EXISTS apartments");
-            st.execute("CREATE TABLE apartments (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20) NOT NULL, age INT)");
-        } finally {
+            ResultSet rs = ps.executeQuery();
+            try {
+                if (!rs.next()) {
+                    st.execute("CREATE TABLE apartments(" +
+                            "id int not null auto_increment primaty key," +
+                            "area varchar(128) default null," +
+                            "address varchar(128) default null," +
+                            "square float default null," +
+                            "room_num int default null," +
+                            "price float default null)");
+                    System.out.println("Table is created!");
+                }
+            }
+            finally {
+                rs.close();
+            }
+        }
+        finally {
+            ps.close();
             st.close();
         }
     }
